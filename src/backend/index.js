@@ -7,7 +7,7 @@ import { initEventsBackend } from './events'
 import { initRouterBackend } from './router'
 import { initPerfBackend } from './perf'
 import { findRelatedComponent } from './utils'
-import { stringify, classify, camelize, set, parse, getComponentName, getCustomRefDetails } from '../util'
+import { stringify, classify, camelize, set, has, parse, getComponentName, getCustomRefDetails } from '../util'
 import ComponentSelector from './component-selector'
 import SharedData, { init as initSharedData } from 'src/shared-data'
 import { isBrowser, target } from 'src/devtools/env'
@@ -539,7 +539,8 @@ function getInstanceState (instance) {
     processRouteContext(instance),
     processVuexGetters(instance),
     processFirebaseBindings(instance),
-    processObservables(instance)
+    processObservables(instance),
+    processAttrs(instance)
   )
 }
 
@@ -628,13 +629,24 @@ function processProps (instance) {
           required: !!prop.required
         } : {
           type: 'invalid'
-        }
+        },
+        editable: SharedData.editableProps
       })
     }
     return propsData
   } else {
     return []
   }
+}
+
+function processAttrs (instance) {
+  return Object.entries(instance.$attrs).map(([key, value]) => {
+    return {
+      type: '$attrs',
+      key,
+      value
+    }
+  })
 }
 
 /**
@@ -687,12 +699,9 @@ function processState (instance) {
  */
 
 function processRefs (instance) {
-  if (Object.keys(instance.$refs).length === 0) {
-    return []
-  }
-  console.log(instance.$refs)
-  let refs = Object.keys(instance.$refs).map(key => getCustomRefDetails(instance, key, instance.$refs[key]))
-  return refs.length > 0 ? refs : []
+  return Object.keys(instance.$refs)
+    .filter(key => instance.$refs[key])
+    .map(key => getCustomRefDetails(instance, key, instance.$refs[key]))
 }
 
 /**
@@ -951,7 +960,10 @@ function setStateValue ({ id, path, value, newKey, remove }) {
         $set: hook.Vue.set,
         $delete: hook.Vue.delete
       } : instance
-      set(instance._data, path, parsedValue, (obj, field, value) => {
+      const data = has(instance._props, path, newKey)
+        ? instance._props
+        : instance._data
+      set(data, path, parsedValue, (obj, field, value) => {
         (remove || newKey) && api.$delete(obj, field)
         !remove && api.$set(obj, newKey || field, value)
       })

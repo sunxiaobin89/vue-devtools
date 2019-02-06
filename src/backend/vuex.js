@@ -146,7 +146,7 @@ export function initVuexBackend (hook, bridge) {
       // Replay mutations
       for (let i = snapshot.index + 1; i <= index; i++) {
         const mutation = mutations[i]
-        mutation.handlers.forEach(handler => handler(state, mutation.payload))
+        mutation.handlers.forEach(handler => handler(mutation.payload))
         if (i !== index && i % SharedData.cacheVuexSnapshotsEvery === 0) {
           takeSnapshot(i, state)
         }
@@ -178,7 +178,9 @@ export function initVuexBackend (hook, bridge) {
     if (value) {
       parsedValue = parse(value, true)
     }
+    store._committing = true
     set(store.state, path, parsedValue)
+    store._committing = false
     bridge.send('vuex:inspected-state', {
       index,
       snapshot: getSnapshot()
